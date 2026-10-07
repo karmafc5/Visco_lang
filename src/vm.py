@@ -1,111 +1,57 @@
 from __future__ import annotations
 
-from src.ast import AskStatement, BinaryOp, IfStatement, LetStatement, Literal, Program, SayStatement, SetStatement, Variable, WhileStatement
-from src.bytecode import BytecodeProgram
+import argparse
+from pathlib import Path
+
+from src.compiler import Compiler
+from src.lexer import Lexer
+from src.parser import Parser
 
 
-class Compiler:
-    def compile(self, program: Program) -> BytecodeProgram:
-        bytecode = BytecodeProgram()
-        for stmt in program.statements:
-            self._compile_statement(stmt, bytecode)
-        return bytecode
+def run_source(source: str):
+    tokens = Lexer(source).tokenize()
+    program = Parser(tokens).parse()
+    python_code = Compiler().to_python(program)
+    namespace = {"__builtins__": __builtins__, "input": input}
+    exec(python_code, namespace, namespace)
+    return namespace
 
-    def _compile_statement(self, stmt, bytecode: BytecodeProgram):
-        if isinstance(stmt, LetStatement):
-            self._compile_expr(stmt.value, bytecode)
-            bytecode.append("STORE_NAME", stmt.name)
-            return
 
-        if isinstance(stmt, SetStatement):
-            self._compile_expr(stmt.value, bytecode)
-            bytecode.append("STORE_NAME", stmt.name)
-            return
+def run_file(path: str):
+    source = Path(path).read_text(encoding="utf-8")
+    return run_source(source)
 
-        if isinstance(stmt, SayStatement):
-            self._compile_expr(stmt.value, bytecode)
-            bytecode.append("PRINT")
-            return
 
-        if isinstance(stmt, AskStatement):
-            bytecode.append("LOAD_CONST", stmt.prompt)
-            bytecode.append("INPUT")
-            bytecode.append("STORE_NAME", stmt.name)
-            return
+def compile_to_python(source: str):
+    tokens = Lexer(source).tokenize()
+    program = Parser(tokens).parse()
+    return Compiler().to_python(program)
 
-        if isinstance(stmt, IfStatement):
-            self._compile_expr(stmt.condition, bytecode)
-            bytecode.append("JUMP_IF_FALSE", "else")
-            for child in stmt.then_block:
-                self._compile_statement(child, bytecode)
-            if stmt.else_block is not None:
-                bytecode.append("JUMP", "end")
-                bytecode.append("LABEL", "else")
-                for child in stmt.else_block:
-                    self._compile_statement(child, bytecode)
-                bytecode.append("LABEL", "end")
-            else:
-                bytecode.append("LABEL", "else")
-            return
 
-        if isinstance(stmt, WhileStatement):
-            bytecode.append("LABEL", "while_start")
-            self._compile_expr(stmt.condition, bytecode)
-            bytecode.append("JUMP_IF_FALSE", "while_end")
-            for child in stmt.body:
-                self._compile_statement(child, bytecode)
-            bytecode.append("JUMP", "while_start")
-            bytecode.append("LABEL", "while_end")
-            return
+def main():
+    parser = argparse.ArgumentParser(description="Visco compiler")
+    subparsers = parser.add_subparsers(dest="command", required=True)
 
-        raise TypeError(f"Unsupported statement type: {type(stmt)!r}")
+    run_parser = subparsers.add_parser("run", help="Run a Visco source file or inline source")
+    run_parser.add_argument("source", help="Path to a .visco file or inline source text")
 
-    def _compile_expr(self, expr, bytecode: BytecodeProgram):
-        if isinstance(expr, Literal):
-            bytecode.append("LOAD_CONST", expr.value)
-            return
+    compile_parser = subparsers.add_parser("compile", help="Compile a Visco source file to Python")
+    compile_parser.add_argument("source", help="Path to a .visco file or inline source text")
 
-        if isinstance(expr, Variable):
-            bytecode.append("LOAD_NAME", expr.name)
-            return
+    args = parser.parse_args()
 
-        if isinstance(expr, BinaryOp):
-            self._compile_expr(expr.left, bytecode)
-            self._compile_expr(expr.right, bytecode)
-            mapping = {
-                "+": "ADD",
-                "-": "SUB",
-                "*": "MUL",
-                "/": "DIV",
-            }
-            opcode = mapping.get(expr.op, "ADD")
-            bytecode.append(opcode)
-            return
+    if args.command == "run":
+        if Path(args.source).exists():
+            run_file(args.source)
+        else:
+            run_source(args.source)
+    elif args.command == "compile":
+        if Path(args.source).exists():
+            source = Path(args.source).read_text(encoding="utf-8")
+        else:
+            source = args.source
+        print(compile_to_python(source))
 
-        raise TypeError(f"Unsupported expression type: {type(expr)!r}")
 
-    def to_python(self, program: Program) -> str:
-        lines = []
-        for stmt in program.statements:
-            lines.extend(self._python_lines(stmt))
-        return "\n".join(lines)
-
-    def _python_lines(self, stmt):
-        if isinstance(stmt, LetStatement):
-            return [f"{stmt.name} = {self._python_expr(stmt.value)}"]
-        if isinstance(stmt, SetStatement):
-            return [f"{stmt.name} = {self._python_expr(stmt.value)}"]
-        if isinstance(stmt, SayStatement):
-            return [f"print({self._python_expr(stmt.value)})"]
-        if isinstance(stmt, AskStatement):
-            return [f"{stmt.name} = input({stmt.prompt!r})"]
-        raise TypeError(f"Unsupported node: {type(stmt)!r}")
-
-    def _python_expr(self, expr):
-        if isinstance(expr, Literal):
-            return repr(expr.value)
-        if isinstance(expr, Variable):
-            return expr.name
-        if isinstance(expr, BinaryOp):
-            return f"({self._python_expr(expr.left)} {expr.op} {self._python_expr(expr.right)})"
-        raise TypeError(f"Unsupported expression: {type(expr)!r}")
+if __name__ == "__main__":
+    main()

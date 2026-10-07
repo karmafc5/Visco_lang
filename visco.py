@@ -1,56 +1,76 @@
 from __future__ import annotations
 
-from src.bytecode import BytecodeProgram
+from src.ast import (
+    AskStatement,
+    BinaryOp,
+    IfStatement,
+    LetStatement,
+    Literal,
+    Program,
+    SayStatement,
+    SetStatement,
+    Variable,
+    WhileStatement,
+)
 
 
-class VirtualMachine:
-    def __init__(self):
-        self.env = {}
-        self.stack = []
+class Compiler:
+    def compile(self, program: Program):
+        return self.to_python(program)
 
-    def run(self, program: BytecodeProgram):
-        for instruction in program.instructions:
-            opcode = instruction.opcode
-            arg = instruction.arg
+    def to_python(self, program: Program) -> str:
+        lines = []
+        for stmt in program.statements:
+            lines.extend(self._emit_statement(stmt, 0))
+        return "\n".join(lines)
 
-            if opcode == "LOAD_CONST":
-                self.stack.append(arg)
-            elif opcode == "LOAD_NAME":
-                self.stack.append(self.env[arg])
-            elif opcode == "STORE_NAME":
-                self.env[arg] = self.stack.pop()
-            elif opcode == "ADD":
-                right = self.stack.pop()
-                left = self.stack.pop()
-                self.stack.append(left + right)
-            elif opcode == "SUB":
-                right = self.stack.pop()
-                left = self.stack.pop()
-                self.stack.append(left - right)
-            elif opcode == "MUL":
-                right = self.stack.pop()
-                left = self.stack.pop()
-                self.stack.append(left * right)
-            elif opcode == "DIV":
-                right = self.stack.pop()
-                left = self.stack.pop()
-                self.stack.append(left / right)
-            elif opcode == "INPUT":
-                prompt = self.stack.pop()
-                self.stack.append(input(prompt))
-            elif opcode == "PRINT":
-                value = self.stack.pop()
-                print(value)
-            elif opcode == "JUMP_IF_FALSE":
-                condition = self.stack.pop()
-                if not condition:
-                    # placeholder: real branching requires labels; kept as no-op for now
-                    pass
-            elif opcode == "JUMP":
-                pass
-            elif opcode == "LABEL":
-                pass
-            else:
-                raise RuntimeError(f"Unknown opcode: {opcode}")
+    def _emit_statement(self, stmt, indent: int):
+        pad = " " * indent
 
-        return self.env
+        if isinstance(stmt, LetStatement):
+            return [f"{pad}{stmt.name} = {self._emit_expr(stmt.value)}"]
+
+        if isinstance(stmt, SetStatement):
+            return [f"{pad}{stmt.name} = {self._emit_expr(stmt.value)}"]
+
+        if isinstance(stmt, SayStatement):
+            return [f"{pad}print({self._emit_expr(stmt.value)})"]
+
+        if isinstance(stmt, AskStatement):
+            return [f"{pad}{stmt.name} = input({stmt.prompt!r})"]
+
+        if isinstance(stmt, IfStatement):
+            lines = [f"{pad}if {self._emit_expr(stmt.condition)}:"]
+            for child in stmt.then_block:
+                lines.extend(self._emit_statement(child, indent + 4))
+            if stmt.else_block is not None:
+                lines.append(f"{pad}else:")
+                for child in stmt.else_block:
+                    lines.extend(self._emit_statement(child, indent + 4))
+            return lines
+
+        if isinstance(stmt, WhileStatement):
+            lines = [f"{pad}while {self._emit_expr(stmt.condition)}:"]
+            for child in stmt.body:
+                lines.extend(self._emit_statement(child, indent + 4))
+            return lines
+
+        raise TypeError(f"Unsupported statement type: {type(stmt)!r}")
+
+    def _emit_expr(self, expr):
+        if isinstance(expr, Literal):
+            if expr.value is None:
+                return "None"
+            if isinstance(expr.value, str):
+                return repr(expr.value)
+            return repr(expr.value)
+
+        if isinstance(expr, Variable):
+            return expr.name
+
+        if isinstance(expr, BinaryOp):
+            left = self._emit_expr(expr.left)
+            right = self._emit_expr(expr.right)
+            return f"({left} {expr.op} {right})"
+
+        raise TypeError(f"Unsupported expression type: {type(expr)!r}")

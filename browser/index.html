@@ -1,2 +1,43 @@
-ask "What is your name?" and store in name
-say "My name is " + name
+from __future__ import annotations
+
+from src.bytecode import BytecodeProgram
+
+
+class VirtualMachine:
+    def __init__(self):
+        self.env = {}
+        self.stack = []
+
+    def run(self, program: BytecodeProgram):
+        for instruction in program.instructions:
+            opcode = instruction.opcode
+            arg = instruction.arg
+
+            if opcode == "LOAD_CONST":
+                self.stack.append(arg)
+            elif opcode == "LOAD_NAME":
+                if arg not in self.env:
+                    raise NameError(f"Unknown variable: {arg}")
+                self.stack.append(self.env[arg])
+            elif opcode == "STORE_NAME":
+                if not self.stack:
+                    raise RuntimeError("Stack underflow while storing variable")
+                self.env[arg] = self.stack.pop()
+            elif opcode == "ADD":
+                right = self.stack.pop(); left = self.stack.pop(); self.stack.append(left + right)
+            elif opcode == "SUB":
+                right = self.stack.pop(); left = self.stack.pop(); self.stack.append(left - right)
+            elif opcode == "MUL":
+                right = self.stack.pop(); left = self.stack.pop(); self.stack.append(left * right)
+            elif opcode == "DIV":
+                right = self.stack.pop(); left = self.stack.pop(); self.stack.append(left / right)
+            elif opcode == "INPUT":
+                prompt = self.stack.pop(); self.stack.append(input(prompt))
+            elif opcode == "PRINT":
+                value = self.stack.pop(); print(value)
+            elif opcode in {"JUMP_IF_FALSE", "JUMP", "LABEL"}:
+                pass
+            else:
+                raise RuntimeError(f"Unknown opcode: {opcode}")
+
+        return self.env

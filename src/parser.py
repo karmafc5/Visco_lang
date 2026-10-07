@@ -20,6 +20,8 @@ KEYWORDS = {
     "is": "IS",
     "to": "TO",
     "say": "SAY",
+    "show": "SAY",
+    "print": "SAY",
     "ask": "ASK",
     "and": "AND",
     "store": "STORE",
@@ -32,9 +34,11 @@ KEYWORDS = {
     "end": "END",
     "true": "TRUE",
     "false": "FALSE",
+    "null": "NULL",
+    "and": "AND",
+    "or": "OR",
+    "not": "NOT",
 }
-
-OPERATORS = {"+", "-", "*", "/", "(", ")"}
 
 
 class Lexer:
@@ -65,14 +69,13 @@ class Lexer:
                 tokens.append(self._read_identifier())
                 continue
 
-            if ch in OPERATORS:
+            if ch in "()+-*/,:;":
                 tokens.append(Token(ch, ch, self.index))
                 self.index += 1
                 continue
 
-            if ch == '?':
-                tokens.append(Token("QUESTION", "?", self.index))
-                self.index += 1
+            if ch in "=<>!":
+                tokens.append(self._read_operator())
                 continue
 
             raise SyntaxError(f"Unexpected character {ch!r} at position {self.index}")
@@ -135,5 +138,38 @@ class Lexer:
                 break
 
         text = self.source[start:self.index]
-        token_type = KEYWORDS.get(text, "IDENT")
+        token_type = KEYWORDS.get(text.lower(), "IDENT")
         return Token(token_type, text, start)
+
+    def _read_operator(self):
+        start = self.index
+        ch = self.source[self.index]
+
+        if ch == '=':
+            if self._peek() == '=':
+                self.index += 2
+                return Token("==", "==", start)
+            self.index += 1
+            return Token("=", "=", start)
+
+        if ch == '!':
+            if self._peek() == '=':
+                self.index += 2
+                return Token("!=", "!=", start)
+            raise SyntaxError(f"Unexpected character {ch!r} at position {self.index}")
+
+        if ch == '<':
+            if self._peek() == '=':
+                self.index += 2
+                return Token("<=", "<=", start)
+            self.index += 1
+            return Token("<", "<", start)
+
+        if ch == '>':
+            if self._peek() == '=':
+                self.index += 2
+                return Token(">=", ">=", start)
+            self.index += 1
+            return Token(">", ">", start)
+
+        raise SyntaxError(f"Unexpected operator {ch!r} at position {self.index}")
