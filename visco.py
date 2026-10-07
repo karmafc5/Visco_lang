@@ -1,44 +1,56 @@
-from src.visco_compiler import Compiler
-import argparse
-from pathlib import Path
+from __future__ import annotations
+
+from src.bytecode import BytecodeProgram
 
 
-def run_file(path: str):
-    source = Path(path).read_text(encoding="utf-8")
-    result = Compiler().run(source)
-    return result
+class VirtualMachine:
+    def __init__(self):
+        self.env = {}
+        self.stack = []
 
+    def run(self, program: BytecodeProgram):
+        for instruction in program.instructions:
+            opcode = instruction.opcode
+            arg = instruction.arg
 
-def compile_file(input_path: str, output_path: str):
-    source = Path(input_path).read_text(encoding="utf-8")
-    compiled = Compiler().compile(source)
-    output = Path(output_path)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(compiled, encoding="utf-8")
-    print(f"Compiled {input_path} -> {output_path}")
+            if opcode == "LOAD_CONST":
+                self.stack.append(arg)
+            elif opcode == "LOAD_NAME":
+                self.stack.append(self.env[arg])
+            elif opcode == "STORE_NAME":
+                self.env[arg] = self.stack.pop()
+            elif opcode == "ADD":
+                right = self.stack.pop()
+                left = self.stack.pop()
+                self.stack.append(left + right)
+            elif opcode == "SUB":
+                right = self.stack.pop()
+                left = self.stack.pop()
+                self.stack.append(left - right)
+            elif opcode == "MUL":
+                right = self.stack.pop()
+                left = self.stack.pop()
+                self.stack.append(left * right)
+            elif opcode == "DIV":
+                right = self.stack.pop()
+                left = self.stack.pop()
+                self.stack.append(left / right)
+            elif opcode == "INPUT":
+                prompt = self.stack.pop()
+                self.stack.append(input(prompt))
+            elif opcode == "PRINT":
+                value = self.stack.pop()
+                print(value)
+            elif opcode == "JUMP_IF_FALSE":
+                condition = self.stack.pop()
+                if not condition:
+                    # placeholder: real branching requires labels; kept as no-op for now
+                    pass
+            elif opcode == "JUMP":
+                pass
+            elif opcode == "LABEL":
+                pass
+            else:
+                raise RuntimeError(f"Unknown opcode: {opcode}")
 
-
-def main():
-    parser = argparse.ArgumentParser(description="Visco language compiler")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    run_parser = subparsers.add_parser("run", help="Run a Visco source file or inline code")
-    run_parser.add_argument("source", help="Path to a .vs file or inline source text")
-
-    compile_parser = subparsers.add_parser("compile", help="Compile a Visco source file to Python")
-    compile_parser.add_argument("input", help="Path to the Visco .vs file")
-    compile_parser.add_argument("output", help="Path to the generated Python file")
-
-    args = parser.parse_args()
-
-    if args.command == "run":
-        if Path(args.source).exists():
-            run_file(args.source)
-        else:
-            Compiler().run(args.source)
-    elif args.command == "compile":
-        compile_file(args.input, args.output)
-
-
-if __name__ == "__main__":
-    main()
+        return self.env

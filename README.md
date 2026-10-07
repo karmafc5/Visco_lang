@@ -1,56 +1,81 @@
-# Visco_lang
+# Visco Language
 
-Visco_lang is a small programming language built from scratch as a teaching project. It is designed to take input, process it, and produce output in a simple, readable way.
+Visco is a small, original programming language designed to feel natural and readable.
 
-Examples:
+The goal is to let you write programs in plain English-like syntax, while the compiler translates them into executable bytecode or Python behind the scenes.
 
-- Add numbers
-- Read a name from input
-- Print a custom greeting
-
-The compiler is currently bootstrapped in Python and compiles Visco source into Python. This gives us a working compiler pipeline quickly while keeping the project easy to understand and extend.
-
-## Language features
-
-The language supports:
-
-- variable declarations with `let`
-- arithmetic expressions (`+`, `-`, `*`, `/`)
-- function calls such as `add(2, 3)`
-- string concatenation using `+`
-- `print(...)` statements
-- `input(...)` for reading text input
-
-## Example program
+## Syntax examples
 
 ```visco
-let name = input("What is your name? ");
-print("My name is " + name);
+let name is "victor"
+say "  " + name
 
-let total = add(10, 5);
-print("The total is " + to_string(total));
+ask "What is your name?" and store in name
+say "My name is " + name
+
+set total to 10 + 5
+say "The total is " + total
 ```
 
-## Running the compiler
+## Roadmap
 
-```bash
-python3 visco.py run examples/greet.vs
-python3 visco.py compile examples/greet.vs build/greet.py
-```
+### Phase 1: Core language foundation
+- Design the syntax
+- Build the lexer
+- Build the parser
+- Build the AST
+
+### Phase 2: Compiler and runtime
+- Build the compiler
+- Create bytecode
+- Build the VM
+- Add variables
+- Add arithmetic
+
+### Phase 3: Control flow and usability
+- Add IF
+- Add WHILE
+- Add error handling
+- Add browser playground
 
 ## Project structure
 
-- `visco.py` - command-line entry point
-- `src/visco_compiler.py` - lexer, parser, compiler, runtime
-- `examples/` - sample Visco programs
+```text
+Visco_lang/
+  README.md
+  visco.py
+  src/
+    __init__.py
+    ast.py
+    bytecode.py
+    compiler.py
+    lexer.py
+    parser.py
+    vm.py
+  examples/
+    hello.visco
+    add.visco
+    greet.visco
+  browser/
+    index.html
+  docs/
+    roadmap.md
+```
 
-## Next steps
+## How to run
 
-The next milestone is to add:
+```bash
+python3 visco.py run examples/greet.visco
+python3 visco.py run "let name is \"victor\"\nsay \"Hello \" + name"
+```
 
-- `if` statements
-- `while` loops
-- function declarations
-- a real bytecode or native code backend
-- eventually a more self-hosted compiler architecture
+## Current status
 
+This repository currently includes:
+- a natural-language lexer
+- parser support for `let`, `set`, `say`, and `ask`
+- an AST model
+- a bytecode compiler and VM
+- sample Visco programs
+
+This is the foundation for building a richer language in later stages.
