@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List
 
 
 class Token:
-    def __init__(self, type_name: str, value: str, position: int):
+    def __init__(self, type_name: str, value: str, position: int = 0):
         self.type = type_name
         self.value = value
         self.position = position
@@ -59,7 +59,7 @@ class Program:
 
 
 class Lexer:
-    KEYWORDS = {"let", "print"}
+    KEYWORDS = {"let", "print", "input", "ask", "fn", "return", "if", "else", "while"}
 
     def __init__(self, source: str):
         self.source = source
@@ -87,13 +87,8 @@ class Lexer:
                 tokens.append(self._read_identifier())
                 continue
 
-            if ch in "();=+-*/":
+            if ch in "();=+-*/,()":
                 tokens.append(Token(ch, ch, self.index))
-                self.index += 1
-                continue
-
-            if ch == ',':
-                tokens.append(Token(',', ',', self.index))
                 self.index += 1
                 continue
 
@@ -104,9 +99,7 @@ class Lexer:
 
     def _peek(self, offset: int = 1):
         pos = self.index + offset
-        if pos < self.length:
-            return self.source[pos]
-        return ""
+        return self.source[pos] if pos < self.length else ""
 
     def _read_string(self):
         start = self.index
@@ -142,8 +135,7 @@ class Lexer:
                 self.index += 1
             else:
                 break
-        number_text = self.source[start:self.index]
-        return Token("NUMBER", number_text, start)
+        return Token("NUMBER", self.source[start:self.index], start)
 
     def _read_identifier(self):
         start = self.index
@@ -153,7 +145,6 @@ class Lexer:
                 self.index += 1
             else:
                 break
-
         text = self.source[start:self.index]
         token_type = "KEYWORD" if text in self.KEYWORDS else "IDENT"
         return Token(token_type, text, start)
@@ -175,19 +166,24 @@ class Parser:
             name = self._expect("IDENT").value
             self._expect("=")
             value = self._parse_expression()
-            self._expect(";")
+            self._consume_optional_semicolon()
             return LetStatement(name, value)
 
         if self._match("KEYWORD", "print"):
-            self._expect("(")
-            value = self._parse_expression()
-            self._expect(")")
-            self._expect(";")
+            if self._match("("):
+                value = self._parse_expression()
+                self._expect(")")
+            else:
+                value = self._parse_expression()
+            self._consume_optional_semicolon()
             return PrintStatement(value)
 
         expr = self._parse_expression()
-        self._expect(";")
+        self._consume_optional_semicolon()
         return expr
+
+    def _consume_optional_semicolon(self):
+        self._match(";")
 
     def _parse_expression(self):
         return self._parse_additive()
@@ -312,22 +308,15 @@ class Compiler:
         namespace = {
             "__builtins__": __builtins__,
             "input": input,
+            "ask": input,
             "add": lambda a, b: a + b,
             "sub": lambda a, b: a - b,
             "mul": lambda a, b: a * b,
             "div": lambda a, b: a / b,
-            "to_string": lambda value: str(value),
+            "to_text": lambda value: str(value),
         }
         exec(generated, namespace, namespace)
         return namespace
 
 
-if __name__ == "__main__":
-    sample = '''
-let name = input("What is your name? ");
-print("My name is " + name);
-let total = add(10, 5);
-print("The total is " + to_string(total));
-'''
-    result = Compiler().run(sample)
-    print(result)
+__all__ = ["Compiler", "Lexer", "Parser", "CodeGenerator"]
